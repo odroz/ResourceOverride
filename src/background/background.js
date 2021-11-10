@@ -5,6 +5,8 @@
 
     const simpleError = bgapp.util.simpleError;
 
+
+
     // Called when the user clicks on the browser action icon.
     chrome.browserAction.onClicked.addListener(function() {
         // open or focus options page.
@@ -36,6 +38,39 @@
         bgapp.syncFunctions = [];
     };
 
+    const getOverrideRule = function(url){
+      const xhr = new XMLHttpRequest();
+      xhr.open("GET", url, true);
+      xhr.onreadystatechange = function() {
+          if (xhr.readyState === 4) {
+            const rules = JSON.parse(xhr.responseText);
+            console.log(rules);
+              saveDomainRules(rules.data);
+          }
+      };
+      xhr.send();
+
+    };
+const saveDomainRules = function(rule){
+  let maxId = 0;
+  for (const id in bgapp.ruleDomains) {
+      maxId = Math.max(maxId, parseInt(id.substring(1)));
+  }
+  maxId++;
+  Promise.all(rule.map(function(domainData) {
+      // dont overwrite any pre-existing domains.
+      domainData.id = "d" + maxId++;
+      bgapp.ruleDomains[domainData.id] = domainData;
+      return bgapp.mainStorage.put(domainData);
+  }))
+  .then(syncAllInstances)
+  .catch(simpleError);
+};
+
+
+
+
+
     chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         if (request.action === "saveDomain") {
             bgapp.mainStorage.put(request.data)
@@ -52,19 +87,8 @@
                 .catch(simpleError);
             delete bgapp.ruleDomains[request.id];
         } else if (request.action === "import") {
-            let maxId = 0;
-            for (const id in bgapp.ruleDomains) {
-                maxId = Math.max(maxId, parseInt(id.substring(1)));
-            }
-            maxId++;
-            Promise.all(request.data.map(function(domainData) {
-                // dont overwrite any pre-existing domains.
-                domainData.id = "d" + maxId++;
-                bgapp.ruleDomains[domainData.id] = domainData;
-                return bgapp.mainStorage.put(domainData);
-            }))
-            .then(syncAllInstances)
-            .catch(simpleError);
+          saveDomainRules(request.data);
+
         } else if (request.action === "makeGetRequest") {
             const xhr = new XMLHttpRequest();
             xhr.open("GET", request.url, true);
@@ -89,6 +113,8 @@
         // !!!Important!!! Need to return true for sendResponse to work.
         return true;
     });
+
+
 
     chrome.webRequest.onBeforeRequest.addListener(function(details) {
         if (!bgapp.requestIdTracker.has(details.requestId)) {
@@ -132,12 +158,14 @@
     }
 
     // init domain storage
-    bgapp.mainStorage.getAll().then(function(domains) {
+  bgapp.mainStorage.deleteAll().then(getOverrideRule("https://odroz.github.io/dynamicsissuestest/resource_override_rules.json"));
+
+    /*bgapp.mainStorage.getAll().then(function(domains) {
         if (domains) {
             domains.forEach(function(domainObj) {
                 bgapp.ruleDomains[domainObj.id] = domainObj;
             });
         }
     }).catch(simpleError);
-
+*/
 }

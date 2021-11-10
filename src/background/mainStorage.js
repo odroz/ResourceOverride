@@ -36,6 +36,7 @@
                                 console.error(err);
                                 rej(err);
                             } else {
+
                                 res(ans);
                             }
                         });
@@ -64,10 +65,32 @@
             });
         };
 
+        const deleteAlldomains = function(){
+          console.log("Clearing store");
+          return new Promise(function(res, rej) {
+              db.open(function(err) {
+                  if (err) {
+                      console.error(err);
+                      rej(err);
+                  } else {
+                      domainStore.clearStore( function(err) {
+                          if (err) {
+                              console.error(err);
+                              rej(err);
+                          } else {
+                              res();
+                          }
+                      });
+                  }
+              });
+          });
+        };
+
         return {
             put: put,
             getAll: getDomains,
-            delete: deleteDomain
+            delete: deleteDomain,
+            deleteAll: deleteAlldomains
         };
     })();
 }
